@@ -1,33 +1,99 @@
 package exchange
 
-import "time"
+import (
+    "time"
+    "sync"
+)
 
 type Fund struct {
     //货币类型
-    CurrencyType int
+    currency int
 
-    amount, money float64
+    amount, money, fee float64
 
-    FrozenAmount, FrozenMoney float64
+    frozenAmount, frozenMoney float64
 
-    Deposit float64
+    deposit float64
 
-    Statments []*FundStmt
+    bills []Bill
+
+    locker *sync.RWMutex
 }
 
 
-func (f *Fund) NewFundStmt() {
+func NewFund(currency int) *Fund {
+    f := &Fund{}
+    f.currency = currency
+    f.bills = make([]Bill, 0)
+    f.locker = &sync.RWMutex{}
 
+    return f
 }
 
+func (f *Fund) Change(amount, money, fee float64) {
+    f.locker.Lock()
+    defer f.locker.Unlock()
+
+    changed := false
+    if amount != 0 {
+        f.amount += amount
+        changed = true
+    }
+    if money != 0 {
+        f.money += money
+        changed = true
+    }
+    if fee != 0 {
+        f.fee += fee
+        changed = true
+    }
+    if changed {
+        f.bills = append(f.bills, Bill{amount, money, fee,time.Now()})
+    }
+}
+
+func (f *Fund) ChangeFrozon(amount, money float64) {
+    f.locker.Lock()
+    defer f.locker.Unlock()
+
+    if amount != 0 {
+        f.frozenAmount += amount
+    }
+    if money != 0 {
+        f.frozenMoney += money
+    }
+}
+
+func (f *Fund) ClearStatements() {
+    f.bills = make([]Bill, 0)
+}
+
+func (f *Fund) Amount() float64 {
+    f.locker.RLock()
+    defer f.locker.RUnlock()
+    return f.amount
+}
+
+func (f *Fund) Money() float64 {
+    f.locker.RLock()
+    defer f.locker.RUnlock()
+    return f.money
+}
+
+func (f *Fund) Fee() float64 {
+    f.locker.RLock()
+    defer f.locker.RUnlock()
+    return f.fee
+}
+
+func (f *Fund) Currency() int {
+    return f.currency
+}
 
 /*
-流水帐
+清单
  */
-type FundStmt struct {
-    //金额变动
-    Amount, Money float64
-
-    //时间点
+type Bill struct {
+    Amount, Money, Fee float64
     CreateTime time.Time
 }

@@ -65,7 +65,11 @@ type IExchange interface {
 
     GetDepth() ([][]float64, [][]float64)
 
-    GetBalance() Balance
+    GetFund() *Fund
+}
+
+type Unit struct {
+    Amount, Price float64
 }
 
 type Exchange struct {
@@ -77,16 +81,10 @@ type Exchange struct {
     //账户金额
     fund *Fund
 
-    tradeLog &Trade
-    amountChange, moneyChange float64
-
-    fee float64
-
     lastAsks, lastBids [][]float64
 
     trades *list.List
 }
-
 
 func NewExchange(name string) *Exchange {
     e := &Exchange{
