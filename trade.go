@@ -1,6 +1,11 @@
 package exchange
 
+import "time"
 
+const (
+    TradeTypeBuy = 1
+    TradeTypeSell = 2
+)
 
 
 type Trade struct {
@@ -8,6 +13,6 @@ type Trade struct {
     Amount float64
     Price float64
     Type string
-    Time int64
+    CreateTime time.Time
 }
 

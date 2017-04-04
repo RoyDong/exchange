@@ -1,7 +1,6 @@
 package exchange
 
 import (
-    "time"
     "sync"
 )
 
@@ -30,25 +29,25 @@ func NewFund(currency int) *Fund {
     return f
 }
 
-func (f *Fund) Change(amount, money, fee float64) {
+func (f *Fund) AddBill(bill Bill) {
     f.locker.Lock()
     defer f.locker.Unlock()
 
     changed := false
-    if amount != 0 {
-        f.amount += amount
+    if bill.Amount != 0 {
+        f.amount += bill.Amount
         changed = true
     }
-    if money != 0 {
-        f.money += money
+    if bill.Money != 0 {
+        f.money += bill.Money
         changed = true
     }
-    if fee != 0 {
-        f.fee += fee
+    if bill.Fee != 0 {
+        f.fee += bill.Fee
         changed = true
     }
     if changed {
-        f.bills = append(f.bills, Bill{amount, money, fee,time.Now()})
+        f.bills = append(f.bills, bill)
     }
 }
 
@@ -64,7 +63,7 @@ func (f *Fund) ChangeFrozon(amount, money float64) {
     }
 }
 
-func (f *Fund) ClearStatements() {
+func (f *Fund) ClearBills() {
     f.bills = make([]Bill, 0)
 }
 
@@ -88,12 +87,4 @@ func (f *Fund) Fee() float64 {
 
 func (f *Fund) Currency() int {
     return f.currency
-}
-
-/*
-清单
- */
-type Bill struct {
-    Amount, Money, Fee float64
-    CreateTime time.Time
 }

@@ -1,6 +1,6 @@
 package exchange
 
-
+import "time"
 
 type Ticker struct {
     High float64
@@ -9,5 +9,5 @@ type Ticker struct {
     Bid  float64
     Last float64
     Vol  float64
-    Time int64
+    CreateTime time.Time
 }
