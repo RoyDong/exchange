@@ -70,6 +70,9 @@ type IExchange interface {
      */
     GetBalance() (int, float64)
 
+    /*
+    获取当前所持有的仓位信息，如果是现货则用一个杠杆为1的多头Position表示: Position.Leverage = 1 Position.Type = LongPosition
+     */
     GetPositions() []*Position
 }
 

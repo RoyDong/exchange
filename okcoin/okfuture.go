@@ -3,10 +3,11 @@ package okcoin
 import (
     "strings"
     "fmt"
+    "time"
+
     "github.com/roydong/gtools"
     "github.com/roydong/exchange/utils"
     "github.com/roydong/exchange"
-    "time"
 )
 
 type OKFuture struct {
@@ -206,6 +207,10 @@ func (ok *OKFuture) GetBalance() (int, float64) {
     deposit, _ := btcInfo.Float("keep_deposit")
 
     return exchange.CurrencyBTC, amount - deposit
+}
+
+func (ok *OKFuture) GetPositions() []*exchange.Position {
+
 }
 
 

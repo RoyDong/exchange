@@ -13,30 +13,24 @@ type Position struct {
     AvgPrice float64
     Money float64
     Deposit float64
-    Leverage int
+    LeverRate int
 }
 
 
-func NewPosition(typ, lever int, amount, price, money float64) *Position {
-    p := &Position{
+func NewPosition(typ, rate int) *Position {
+    return &Position{
         Type: typ,
-        Amount: amount,
-        AvgPrice: price,
-        Money: money,
-        Deposit: 0,
-        Leverage: lever,
+        LeverRate: rate,
     }
+}
 
-    if p.Amount > 0 {
-        if p.AvgPrice > 0 {
-            p.Money = p.Amount * p.AvgPrice
-        } else if p.Money > 0 {
-            p.AvgPrice = p.Amount / p.Money
-        }
-
-        p.Deposit = p.Money / float64(p.Leverage)
+func (p *Position) Change(amount, price float64) {
+    p.Amount += amount
+    p.Money += amount * price
+    if p.Amount > 0 && p.Money > 0 {
+        p.AvgPrice = p.Amount / p.Money
+    } else {
+        p.AvgPrice = 0
     }
-
-    return p
 }
 
