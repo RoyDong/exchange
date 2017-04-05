@@ -29,6 +29,12 @@ func NewFund(currency int) *Fund {
     return f
 }
 
+func (f *Fund) SetDeposit(deposit float64) {
+    f.locker.Lock()
+    defer f.locker.Unlock()
+    f.deposit = deposit
+}
+
 func (f *Fund) AddBill(bill Bill) {
     f.locker.Lock()
     defer f.locker.Unlock()
@@ -83,6 +89,12 @@ func (f *Fund) Fee() float64 {
     f.locker.RLock()
     defer f.locker.RUnlock()
     return f.fee
+}
+
+func (f *Fund) Deposit() float64 {
+    f.locker.RUnlock()
+    defer f.locker.RUnlock()
+    return f.deposit
 }
 
 func (f *Fund) Currency() int {

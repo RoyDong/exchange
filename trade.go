@@ -9,7 +9,7 @@ const (
 
 
 type Trade struct {
-    Id string
+    Id int64
     Amount float64
     Price float64
     Type string

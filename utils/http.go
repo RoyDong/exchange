@@ -6,12 +6,11 @@ import (
     "fmt"
     "strings"
     "sort"
-    "github.com/roydong/gmvc"
     "io/ioutil"
-    "math"
+    "github.com/roydong/gtools"
 )
 
-func CallRest(api string, query, data map[string]interface{}) *gmvc.Tree {
+func CallRest(api string, query, data map[string]interface{}) *gtools.Tree {
     if query != nil {
         api = api + "?" + BuildHttpQuery(query)
     }
@@ -28,20 +27,17 @@ func CallRest(api string, query, data map[string]interface{}) *gmvc.Tree {
         resp, err = http.PostForm(api, form)
     }
     if err != nil {
-        gmvc.Logger.Println("call " + api + " error")
         return nil
     }
 
     defer resp.Body.Close()
     body, err := ioutil.ReadAll(resp.Body)
     if err != nil {
-        gmvc.Logger.Println("call " + api + " error")
         return nil
     }
 
-    tree := gmvc.NewTree()
+    tree := gtools.NewTree()
     if err = tree.LoadJson("", body, false); err != nil {
-        gmvc.Logger.Println("call " + api + " error not json")
         return nil
     }
 
@@ -56,7 +52,7 @@ func BuildHttpQuery(data map[string]interface{}) string {
     return strings.Join(query, "&")
 }
 
-func createSignature(params map[string]interface{}, skey string) string {
+func CreateSignature(params map[string]interface{}, skey string) string {
     keys := make([]string, 0, len(params))
     for k := range params {
         keys = append(keys, k)
@@ -71,62 +67,6 @@ func createSignature(params map[string]interface{}, skey string) string {
 
     sigs = append(sigs, "secret_key=" + skey)
 
-    return gmvc.MD5(strings.Join(sigs, "&"))
+    return gtools.MD5(strings.Join(sigs, "&"))
 }
-
-
-/*
-根据深度获得需要卖出amount数量的btc需要的价位,即获取对应的买单价(bid price)
- */
-func GetSellPrice(amount float64, bids [][]float64) float64 {
-    var sum, price float64
-    for _, bid := range bids {
-        price = bid[0]
-        sum += bid[1]
-        if sum >= amount {
-            break
-        }
-    }
-    return price
-}
-
-/*
-根据深度获得需要买入amount数量的btc需要的价位,即获取对应的卖单价(ask price)
- */
-func GetBuyPrice(amount float64, asks [][]float64) float64 {
-    var sum, price float64
-    for _, ask := range asks {
-        price = ask[0]
-        sum += ask[1]
-        if sum >= amount {
-            break
-        }
-    }
-    return price
-}
-
-func max(nums ...float64) float64 {
-    var max float64
-    for i, n := range nums {
-        if i == 0 {
-            max = n
-        } else {
-            max = math.Max(max, n)
-        }
-    }
-    return max
-}
-
-func min(nums ...float64) float64 {
-    var min float64
-    for i, n := range nums {
-        if i == 0 {
-            min = n
-        } else {
-            min = math.Min(min, n)
-        }
-    }
-    return min
-}
-
 
