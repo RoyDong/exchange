@@ -29,6 +29,10 @@ func NewOKFuture(httpHost, apiKey, apiSecret, contractType string, leverRate int
     return ok
 }
 
+func (ok *OKFuture) Name() string {
+    return "okfuture/" + ok.contractType
+}
+
 func (ok *OKFuture) Trade(position int, amount, price float64) int64 {
     params := map[string]interface{}{
         "symbol": "btc_usd",
@@ -42,7 +46,7 @@ func (ok *OKFuture) Trade(position int, amount, price float64) int64 {
     if price == 0 {
         params["match_price"] = 1
     }
-    rs := ok.Call("future_trade.do", nil, params)
+    rs := ok.callHttp("future_trade.do", nil, params)
     if rs == nil {
         return 0
     }
@@ -50,7 +54,7 @@ func (ok *OKFuture) Trade(position int, amount, price float64) int64 {
     return id
 }
 
-func (ok *OKFuture) Order(id int64) exchange.Order {
+func (ok *OKFuture) GetOrder(id int64) exchange.Order {
     params := map[string]interface{}{
         "symbol": "btc_usd",
         "contract_type": ok.contractType,
@@ -58,7 +62,7 @@ func (ok *OKFuture) Order(id int64) exchange.Order {
     }
 
     order := exchange.Order{}
-    rs := ok.Call("future_order_info.do", nil, params)
+    rs := ok.callHttp("future_order_info.do", nil, params)
     if rs == nil {
         return order
     }
@@ -87,7 +91,7 @@ func (ok *OKFuture) CancelOrder(id int64) bool {
         "order_id": id,
     }
 
-    rs := ok.Call("future_cancel.do", nil, params)
+    rs := ok.callHttp("future_cancel.do", nil, params)
     if rs == nil {
         return false
     }
@@ -99,23 +103,13 @@ func (ok *OKFuture) CancelOrder(id int64) bool {
     return false
 }
 
-func (ok *OKFuture) GetExchangeRate() float64 {
-    rs := ok.Call("exchange_rate.do", nil, nil)
-    if rs == nil {
-        return 6.8
-    }
-
-    rate, _ := rs.Float("rate")
-    return rate
-}
-
 func (ok *OKFuture) GetTrades() []exchange.Trade {
     params := map[string]interface{}{
         "symbol": "btc_usd",
         "contract_type": ok.contractType,
     }
 
-    rs := ok.Call("future_trades.do", params, nil)
+    rs := ok.callHttp("future_trades.do", params, nil)
     if rs == nil {
         return nil
     }
@@ -135,15 +129,15 @@ func (ok *OKFuture) GetTrades() []exchange.Trade {
     return trades
 }
 
-func (ok *OKFuture) LastTicker() *exchange.Ticker {
+func (ok *OKFuture) GetTicker() exchange.Ticker {
+    t := exchange.Ticker{}
     q := map[string]interface{}{"symbol": "btc_usd", "contract_type": ok.contractType}
-    rs := ok.Call("future_ticker.do", q, nil)
+    rs := ok.callHttp("future_ticker.do", q, nil)
     if rs == nil {
-        return nil
+        return t
     }
 
     rst := rs.Tree("ticker")
-    t := &exchange.Ticker{}
     t.High, _ = rst.Float("high")
     t.Low,  _ = rst.Float("low")
     t.Ask, _ = rst.Float("sell")
@@ -153,11 +147,10 @@ func (ok *OKFuture) LastTicker() *exchange.Ticker {
     sec, _ := rs.Int64("date")
     t.CreateTime = time.Unix(sec, 0)
 
-
     return t
 }
 
-func (ok *OKFuture) GetDepth() ([][]float64, [][]float64) {
+func (ok *OKFuture) GetDepth() ([]exchange.SmallBill, []exchange.SmallBill) {
     query := map[string]interface{}{
         "symbol": "btc_usd",
         "size": 50,
@@ -165,91 +158,58 @@ func (ok *OKFuture) GetDepth() ([][]float64, [][]float64) {
         "contract_type": ok.contractType,
     }
 
-    rs := ok.Call("future_depth.do", query, nil)
+    rs := ok.callHttp("future_depth.do", query, nil)
     if rs == nil {
         return nil, nil
     }
 
     var l int
-    ask := make([][]float64, 0, l)
+    ask := make([]exchange.SmallBill, 0, l)
     l = rs.NodeNum("asks")
     for i := l - 1; i >= 0; i-- {
         price, _ := rs.Float(fmt.Sprintf("asks.%v.0", i))
         amount, _ := rs.Float(fmt.Sprintf("asks.%v.1", i))
-        ask = append(ask, []float64{price, amount})
+        ask = append(ask, exchange.SmallBill{amount, price})
     }
 
-    bid := make([][]float64, 0, l)
+    bid := make([]exchange.SmallBill, 0, l)
     l = rs.NodeNum("bids")
     for i := 0; i < l; i++ {
         price, _ := rs.Float(fmt.Sprintf("bids.%v.0", i))
         amount, _ := rs.Float(fmt.Sprintf("bids.%v.1", i))
-        bid = append(bid, []float64{price, amount})
+        bid = append(bid, exchange.SmallBill{amount, price})
     }
 
     return ask, bid
 }
 
-func (ok *OKFuture) Index() float64 {
+func (ok *OKFuture) GetIndex() float64 {
     q := map[string]interface{}{"symbol": "btc_usd"}
-    rs := ok.Call("future_index.do", q, nil)
+    rs := ok.callHttp("future_index.do", q, nil)
     idx, _ := rs.Float("future_index")
     return idx
 }
 
 
-func (ok *OKFuture) GetFund() *exchange.Fund {
-    fund := exchange.NewFund(exchange.CurrencyBTC)
-    rs := ok.Call("future_userinfo.do", nil, map[string]interface{}{})
+func (ok *OKFuture) GetBalance() (int, float64) {
+    rs := ok.callHttp("future_userinfo.do", nil, map[string]interface{}{})
     if rs == nil {
-        return nil
+        return 0, 0
     }
 
     btcInfo := rs.Tree("info.btc")
     if btcInfo == nil {
-        return nil
+        return 0, 0
     }
 
-    bill := exchange.Bill{}
-    bill.Amount, _ = btcInfo.Float("account_rights")
+    amount, _ := btcInfo.Float("account_rights")
     deposit, _ := btcInfo.Float("keep_deposit")
-    bill.Money = amount - deposit
 
-    fund.SetDeposit(deposit)
-    fund.AddBill(bill)
-
-
-
-
-
-    params := map[string]interface{} {
-        "symbol": "btc_usd",
-        "contract_type": ok.contractType,
-    }
-    rs = ok.Call("future_position.do", nil, params)
-    if rs == nil {
-        return fund
-    }
-
-    holding := rs.Tree("holding.0")
-    if holding == nil {
-        return nil
-    }
-
-    balance.ContractId , _ = holding.Int64("contract_id")
-    balance.LongAmount, _ = holding.Float("buy_amount")
-    balance.LongPrice, _ = holding.Float("buy_price_cost")
-    balance.LongProfit, _ = holding.Float("buy_profit_real")
-
-    balance.ShortAmount, _ = holding.Float("sell_amount")
-    balance.ShortPrice, _ = holding.Float("sell_price_avg")
-    balance.ShortProfit, _ = holding.Float("sell_profit_real")
-
-    return fund
+    return exchange.CurrencyBTC, amount - deposit
 }
 
 
-func (ok *OKFuture) Call(api string, query, params map[string]interface{}) *gtools.Tree {
+func (ok *OKFuture) callHttp(api string, query, params map[string]interface{}) *gtools.Tree {
     if params != nil {
         params["api_key"] = ok.apiKey
         params["sign"] = strings.ToUpper(utils.CreateSignature(params, ok.apiSecret))
@@ -266,5 +226,4 @@ func (ok *OKFuture) Call(api string, query, params map[string]interface{}) *gtoo
 
     return tree
 }
-
 

@@ -15,9 +15,6 @@ Money  购买所用的货币数量(rmb, usd, btc, ltc ...), 需要事先定好�
 
 
 const (
-    //仓位 方向
-    PositionLong = 1
-    PositionShort = 2
 
     //交易 下单类型
     OpenLongPosition = 1
@@ -68,7 +65,11 @@ type IExchange interface {
 
     GetDepth() ([]SmallBill, []SmallBill)
 
-    GetFund() *Fund
-}
+    /*
+    return currency type, money
+     */
+    GetBalance() (int, float64)
 
+    GetPositions() []*Position
+}
 
