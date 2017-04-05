@@ -53,26 +53,26 @@ type IExchange interface {
     amount 数量
     price 价格  price = 0 市价, price = -1 对手价
      */
-    Trade(pos int, amount, price float64) int64
+    Trade(pos int, amount, price float64) (int64, error)
 
-    CancelOrder(id int64) bool
+    CancelOrder(id int64) error
 
-    GetOrder(id int64) Order
+    GetOrder(id int64) (Order, error)
 
-    GetTicker() Ticker
+    GetTicker() (Ticker, error)
 
-    GetTrades() []Trade
+    GetTrades() ([]Trade, error)
 
-    GetDepth() ([]SmallBill, []SmallBill)
+    GetDepth() ([]SmallBill, []SmallBill, error)
 
     /*
     return currency type, money
      */
-    GetBalance() (int, float64)
+    GetBalance() (int, float64, error)
 
     /*
     获取当前所持有的仓位信息，如果是现货则用一个杠杆为1的多头Position表示: Position.Leverage = 1 Position.Type = LongPosition
      */
-    GetPositions() []*Position
+    GetPositions() ([]*Position, error)
 }
 

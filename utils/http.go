@@ -10,7 +10,7 @@ import (
     "github.com/roydong/gtools"
 )
 
-func CallRest(api string, query, data map[string]interface{}) *gtools.Tree {
+func CallRest(api string, query, data map[string]interface{}) (*gtools.Tree, error) {
     if query != nil {
         api = api + "?" + BuildHttpQuery(query)
     }
@@ -27,21 +27,21 @@ func CallRest(api string, query, data map[string]interface{}) *gtools.Tree {
         resp, err = http.PostForm(api, form)
     }
     if err != nil {
-        return nil
+        return nil, err
     }
 
     defer resp.Body.Close()
     body, err := ioutil.ReadAll(resp.Body)
     if err != nil {
-        return nil
+        return nil, err
     }
 
     tree := gtools.NewTree()
     if err = tree.LoadJson("", body, false); err != nil {
-        return nil
+        return nil, err
     }
 
-    return tree
+    return tree, nil
 }
 
 func BuildHttpQuery(data map[string]interface{}) string {

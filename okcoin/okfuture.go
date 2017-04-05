@@ -8,6 +8,7 @@ import (
     "github.com/roydong/gtools"
     "github.com/roydong/exchange/utils"
     "github.com/roydong/exchange"
+    "errors"
 )
 
 type OKFuture struct {
@@ -34,7 +35,7 @@ func (ok *OKFuture) Name() string {
     return "okfuture/" + ok.contractType
 }
 
-func (ok *OKFuture) Trade(position int, amount, price float64) int64 {
+func (ok *OKFuture) Trade(position int, amount, price float64) (int64, error) {
     params := map[string]interface{}{
         "symbol": "btc_usd",
         "contract_type": ok.contractType,
@@ -47,15 +48,15 @@ func (ok *OKFuture) Trade(position int, amount, price float64) int64 {
     if price == 0 {
         params["match_price"] = 1
     }
-    rs := ok.callHttp("future_trade.do", nil, params)
-    if rs == nil {
-        return 0
+    rs, err := ok.callHttp("future_trade.do", nil, params)
+    if err != nil {
+        return 0, err
     }
     id, _ := rs.Int64("order_id")
-    return id
+    return id, nil
 }
 
-func (ok *OKFuture) GetOrder(id int64) exchange.Order {
+func (ok *OKFuture) GetOrder(id int64) (exchange.Order, error) {
     params := map[string]interface{}{
         "symbol": "btc_usd",
         "contract_type": ok.contractType,
@@ -63,14 +64,14 @@ func (ok *OKFuture) GetOrder(id int64) exchange.Order {
     }
 
     order := exchange.Order{}
-    rs := ok.callHttp("future_order_info.do", nil, params)
-    if rs == nil {
-        return order
+    rs, err := ok.callHttp("future_order_info.do", nil, params)
+    if err != nil {
+        return order, nil
     }
 
     rst := rs.Tree("orders.0")
     if rst == nil {
-        return order
+        return order, errors.New("okfuture: return orders is empty")
     }
 
     order.Id = id
@@ -82,37 +83,37 @@ func (ok *OKFuture) GetOrder(id int64) exchange.Order {
     sec, _ := rst.Int64("create_date")
     order.CreateTime = time.Unix(sec, 0)
 
-    return order
+    return order, nil
 }
 
-func (ok *OKFuture) CancelOrder(id int64) bool {
+func (ok *OKFuture) CancelOrder(id int64) error {
     params := map[string]interface{} {
         "symbol": "btc_usd",
         "contract_type": ok.contractType,
         "order_id": id,
     }
 
-    rs := ok.callHttp("future_cancel.do", nil, params)
-    if rs == nil {
-        return false
+    rs, err := ok.callHttp("future_cancel.do", nil, params)
+    if err != nil {
+        return err
     }
 
     if result, _ := rs.String("result"); result == "true" {
-        return true
+        return errors.New(fmt.Sprintf("okfuture: CancleOrder failed"))
     }
 
-    return false
+    return nil
 }
 
-func (ok *OKFuture) GetTrades() []exchange.Trade {
+func (ok *OKFuture) GetTrades() ([]exchange.Trade, error) {
     params := map[string]interface{}{
         "symbol": "btc_usd",
         "contract_type": ok.contractType,
     }
 
-    rs := ok.callHttp("future_trades.do", params, nil)
-    if rs == nil {
-        return nil
+    rs, err := ok.callHttp("future_trades.do", params, nil)
+    if err != nil {
+        return nil, err
     }
 
     n := rs.NodeNum("")
@@ -127,15 +128,15 @@ func (ok *OKFuture) GetTrades() []exchange.Trade {
         trade.Type, _ = rs.String(fmt.Sprintf("%d.type", i))
         trades = append(trades, trade)
     }
-    return trades
+    return trades, nil
 }
 
-func (ok *OKFuture) GetTicker() exchange.Ticker {
+func (ok *OKFuture) GetTicker() (exchange.Ticker, error) {
     t := exchange.Ticker{}
     q := map[string]interface{}{"symbol": "btc_usd", "contract_type": ok.contractType}
-    rs := ok.callHttp("future_ticker.do", q, nil)
-    if rs == nil {
-        return t
+    rs, err := ok.callHttp("future_ticker.do", q, nil)
+    if err != nil {
+        return t, err
     }
 
     rst := rs.Tree("ticker")
@@ -148,10 +149,10 @@ func (ok *OKFuture) GetTicker() exchange.Ticker {
     sec, _ := rs.Int64("date")
     t.CreateTime = time.Unix(sec, 0)
 
-    return t
+    return t, nil
 }
 
-func (ok *OKFuture) GetDepth() ([]exchange.SmallBill, []exchange.SmallBill) {
+func (ok *OKFuture) GetDepth() ([]exchange.SmallBill, []exchange.SmallBill, error) {
     query := map[string]interface{}{
         "symbol": "btc_usd",
         "size": 50,
@@ -159,9 +160,9 @@ func (ok *OKFuture) GetDepth() ([]exchange.SmallBill, []exchange.SmallBill) {
         "contract_type": ok.contractType,
     }
 
-    rs := ok.callHttp("future_depth.do", query, nil)
-    if rs == nil {
-        return nil, nil
+    rs, err := ok.callHttp("future_depth.do", query, nil)
+    if err != nil {
+        return nil, nil, err
     }
 
     var l int
@@ -181,54 +182,55 @@ func (ok *OKFuture) GetDepth() ([]exchange.SmallBill, []exchange.SmallBill) {
         bid = append(bid, exchange.SmallBill{amount, price})
     }
 
-    return ask, bid
+    return ask, bid, nil
 }
 
-func (ok *OKFuture) GetIndex() float64 {
+func (ok *OKFuture) GetIndex() (float64, error) {
     q := map[string]interface{}{"symbol": "btc_usd"}
-    rs := ok.callHttp("future_index.do", q, nil)
+    rs, err := ok.callHttp("future_index.do", q, nil)
     idx, _ := rs.Float("future_index")
-    return idx
+    return idx, err
 }
 
 
-func (ok *OKFuture) GetBalance() (int, float64) {
-    rs := ok.callHttp("future_userinfo.do", nil, map[string]interface{}{})
-    if rs == nil {
-        return 0, 0
+func (ok *OKFuture) GetBalance() (int, float64, error) {
+    rs, err := ok.callHttp("future_userinfo.do", nil, map[string]interface{}{})
+    if err != nil {
+        return 0, 0, nil
     }
 
     btcInfo := rs.Tree("info.btc")
     if btcInfo == nil {
-        return 0, 0
+        return 0, 0, errors.New("okfuture: GetBalance error")
     }
 
     amount, _ := btcInfo.Float("account_rights")
     deposit, _ := btcInfo.Float("keep_deposit")
 
-    return exchange.CurrencyBTC, amount - deposit
+    return exchange.CurrencyBTC, amount - deposit, nil
 }
 
 func (ok *OKFuture) GetPositions() []*exchange.Position {
 
+    return nil
 }
 
 
-func (ok *OKFuture) callHttp(api string, query, params map[string]interface{}) *gtools.Tree {
+func (ok *OKFuture) callHttp(api string, query, params map[string]interface{}) (*gtools.Tree, error) {
     if params != nil {
         params["api_key"] = ok.apiKey
         params["sign"] = strings.ToUpper(utils.CreateSignature(params, ok.apiSecret))
     }
 
-    tree := utils.CallRest(ok.httpHost + api, query, params)
+    tree, err := utils.CallRest(ok.httpHost + api, query, params)
     if tree == nil {
-        return nil
+        return nil, err
     }
 
-    if _, has := tree.Int64("error_code"); has {
-        return nil
+    if code, has := tree.Int64("error_code"); has {
+        return nil, errors.New(fmt.Sprintf("okfuture: call api error[%v]", code))
     }
 
-    return tree
+    return tree, nil
 }
 
